@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Market Analyst</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        /* Custom scrollbar for the report box */
+        #report-box::-webkit-scrollbar { width: 8px; }
+        #report-box::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        #report-box::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        #report-box::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        /* Markdown formatting styles */
+        .markdown-body h3 { font-size: 1.25rem; font-weight: 600; color: #1e293b; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+        .markdown-body ul { list-style-type: disc; padding-left: 1.5rem; margin-bottom: 1rem; }
+        .markdown-body li { margin-bottom: 0.25rem; color: #334155; }
+        .markdown-body strong { color: #0f172a; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen">
+
+<nav class="bg-blue-900 text-white shadow-lg">
+    <div class="max-w-5xl mx-auto px-4 py-4 flex items-center gap-3">
+        <i class="fa-solid fa-chart-line text-2xl text-blue-400"></i>
+        <h1 class="text-xl font-bold tracking-wide">Market Analyst <span class="text-blue-300 font-light">Pro</span></h1>
+    </div>
+</nav>
+
+<main class="max-w-5xl mx-auto px-4 py-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+
+    <div class="md:col-span-1 space-y-6">
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+            <h2 class="text-lg font-semibold mb-4 text-slate-700">New Analysis</h2>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-1">Stock Ticker</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="fa-solid fa-magnifying-glass text-slate-400"></i>
+                        </div>
+                        <input type="text" id="tickerInput" placeholder="e.g., RELIANCE"
+                               class="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none uppercase transition-all">
+                    </div>
+                </div>
+
+                <button onclick="startAnalysis()" id="analyzeBtn"
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2 shadow-sm">
+                    <i class="fa-solid fa-bolt"></i> Run Deep Analysis
+                </button>
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+            <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-500 mb-3">System Status</h2>
+            <div id="statusIndicator" class="flex items-center gap-3 text-slate-600">
+                <div class="w-3 h-3 rounded-full bg-slate-300" id="statusDot"></div>
+                <span id="statusText" class="font-medium">System Ready</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="md:col-span-2">
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-full overflow-hidden">
+            <div class="bg-slate-100 px-6 py-3 border-b border-slate-200 flex justify-between items-center">
+                <h2 class="font-semibold text-slate-700"><i class="fa-solid fa-robot mr-2 text-blue-500"></i> Llama 3.1 Insight Report</h2>
+                <span id="timestamp" class="text-xs text-slate-500 font-mono">--:--:--</span>
+            </div>
+
+            <div id="report-box" class="p-6 h-[500px] overflow-y-auto markdown-body bg-white">
+                <div id="placeholder" class="h-full flex flex-col items-center justify-center text-slate-400 opacity-50 space-y-4">
+                    <i class="fa-solid fa-file-invoice text-6xl"></i>
+                    <p>Enter a ticker to generate a report.</p>
+                </div>
+                <div id="ai-output"></div>
+            </div>
+        </div>
+    </div>
+
+</main>
+
+<script>
+    function updateStatus(message, state) {
+        const dot = document.getElementById('statusDot');
+        const text = document.getElementById('statusText');
+        text.innerText = message;
+
+        // Reset classes
+        dot.className = "w-3 h-3 rounded-full animate-pulse";
+        document.getElementById('analyzeBtn').disabled = (state === 'loading');
+
+        if (state === 'loading') {
+            dot.classList.add("bg-amber-500");
+            document.getElementById('analyzeBtn').classList.add("opacity-50", "cursor-not-allowed");
+        } else if (state === 'success') {
+            dot.className = "w-3 h-3 rounded-full bg-emerald-500"; // No pulse on success
+            document.getElementById('analyzeBtn').classList.remove("opacity-50", "cursor-not-allowed");
+        } else if (state === 'error') {
+            dot.className = "w-3 h-3 rounded-full bg-red-500";
+            document.getElementById('analyzeBtn').classList.remove("opacity-50", "cursor-not-allowed");
+        }
+    }
+
+    function startAnalysis() {
+        const ticker = document.getElementById('tickerInput').value.trim().toUpperCase();
+        if(!ticker) {
+            alert("Please enter a stock ticker.");
+            return;
+        }
+
+        // UI Resets
+        document.getElementById('placeholder').style.display = 'none';
+        document.getElementById('ai-output').innerHTML = "";
+        document.getElementById('timestamp').innerText = new Date().toLocaleTimeString();
+
+        updateStatus(`Fetching data & analyzing ${ticker}...`, 'loading');
+
+        // Trigger the backend
+        fetch(`/api/stock/analyze/${ticker}`, { method: 'POST' })
+            .catch(err => {
+                updateStatus("Failed to connect to server.", 'error');
+            });
+    }
+
+    // Listen for the AI SSE Stream
+    const eventSource = new EventSource("/api/analysis-stream");
+
+    eventSource.addEventListener("ai-report", (event) => {
+        // Check for the custom error message we added earlier
+        if (event.data.includes("ERROR:")) {
+            updateStatus("AI Engine Offline", "error");
+            document.getElementById('ai-output').innerHTML = `<div class="p-4 bg-red-50 text-red-700 border border-red-200 rounded-md"><i class="fa-solid fa-triangle-exclamation mr-2"></i> ${event.data}</div>`;
+            return;
+        }
+
+        updateStatus("Analysis Complete", "success");
+
+        // Use Marked.js to parse the Markdown into proper HTML
+        const parsedHTML = marked.parse(event.data);
+
+        // Add a divider if there are multiple reports, then prepend the new one
+        const currentContent = document.getElementById('ai-output').innerHTML;
+        const divider = currentContent ? '<hr class="my-6 border-slate-200">' : '';
+
+        document.getElementById('ai-output').innerHTML = parsedHTML + divider + currentContent;
+    });
+
+    eventSource.onerror = () => {
+        updateStatus("Stream connection lost. Reconnecting...", "error");
+    };
+</script>
+</body>
+</html>
