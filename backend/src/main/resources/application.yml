@@ -1,0 +1,45 @@
+spring:
+  application:
+    name: market-analyst-pro
+  threads:
+    virtual:
+      enabled: true
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/market_analyst}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
+    hikari:
+      maximum-pool-size: 15
+      minimum-idle: 5
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+server:
+  port: ${SERVER_PORT:8080}
+
+app:
+  provider:
+    # 'mock' for Milestone 1 (fake candles & simulated AI)
+    # 'real' for Milestone 2 (Python yfinance service + local Ollama LLM)
+    mode: ${APP_PROVIDER_MODE:real}
+  market-data:
+    base-url: ${APP_MARKET_DATA_BASE_URL:http://localhost:8000}
+    candle-count: 4
+    interval: 30m
+    timeout-seconds: 15
+  ai:
+    ollama-base-url: ${APP_AI_OLLAMA_BASE_URL:http://localhost:11434}
+    ollama-model: ${APP_AI_OLLAMA_MODEL:llama3.2:latest}
+    timeout-seconds: ${AI_TIMEOUT_SECONDS:45}
+    max-retries: ${AI_MAX_RETRIES:2}
+    retry-backoff-ms: 600
+    mock-latency-ms: 1200
