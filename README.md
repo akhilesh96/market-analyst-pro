@@ -72,3 +72,10 @@ cd backend && mvn test
 # Run Python market data unit tests
 cd market-data-service && pytest -v
 ```
+## Demo
+
+### 1. On-Demand 30m Stock Analysis & Caching
+[docs/stock_analysis_demo.gif]
+
+### 2. High-Concurrency Rust WebSocket Live Chat
+[docs/live_chat_demo.gif]
