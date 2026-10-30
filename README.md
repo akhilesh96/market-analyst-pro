@@ -76,10 +76,11 @@ cd market-data-service && pytest -v
 
 ### 1. On-Demand 30m Stock Analysis & Caching
 
-![docs/stock_analysis_demo.gif]
+![](https://github.com/akhilesh96/market-analyst-pro/blob/main/docs/stock_analysis_demo.gif)
+
 
 ### 2. High-Concurrency Rust WebSocket Live Chat
 
-![docs/live_chat_demo.gif]
+![](https://github.com/akhilesh96/market-analyst-pro/blob/main/docs/live_chat_demo.gif)
 
 
