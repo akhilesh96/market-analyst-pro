@@ -162,35 +162,35 @@ public class StockAnalysisOrchestrator {
 
         int maxAttempts = Math.max(1, properties.ai().maxRetries() + 1);
         long backoffMs = Math.max(50L, properties.ai().retryBackoffMs());
-        int timeoutSeconds = Math.max(1, properties.ai().timeoutSeconds());
+        //int timeoutSeconds = Math.max(1, properties.ai().timeoutSeconds());
         Throwable lastError = null;
 
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             boolean acquired = false;
+            AiGenerationResult result = null;
             try {
-                // 2. Wait in the Virtual Thread line to acquire 1 of the 2 Ollama permits
                 aiConcurrencyLimiter.acquire();
                 acquired = true;
 
-                // 3. Start the timeout clock ONLY after the permit is acquired!
-                AiGenerationResult result = CompletableFuture
-                        .supplyAsync(() -> aiSummaryProvider.generateSummary(candle), aiAnalysisExecutor)
-                        .get(timeoutSeconds, TimeUnit.SECONDS);
-
-                persistenceHelper.markCompleted(candle, result);
-                return;
-            } catch (TimeoutException te) {
-                lastError = new RuntimeException("AI generation timed out after " + timeoutSeconds + "s", te);
-            } catch (ExecutionException ee) {
-                lastError = ee.getCause() != null ? ee.getCause() : ee;
-            } catch (InterruptedException ie) {
+                result = aiSummaryProvider.generateSummary(candle);
+            }
+            catch (InterruptedException ie) {
                 Thread.currentThread().interrupt();
                 lastError = ie;
                 break;
-            } finally {
+            }
+            catch(RuntimeException ex){
+                lastError = ex;
+            }
+            finally {
                 if (acquired) {
                     aiConcurrencyLimiter.release();
                 }
+            }
+
+            if(result!=null){
+                persistenceHelper.markCompleted(candle,result);
+                return;
             }
 
             if (attempt < maxAttempts) {
@@ -198,6 +198,7 @@ public class StockAnalysisOrchestrator {
                     Thread.sleep(backoffMs * attempt);
                 } catch (InterruptedException ie) {
                     Thread.currentThread().interrupt();
+                    lastError =ie;
                     break;
                 }
             }
