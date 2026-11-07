@@ -87,7 +87,7 @@ public class StockAnalysisOrchestrator {
         for (CandleData candle : candles) {
             CandleAnalysisEntity entity = persistenceHelper.getOrCreatePendingRecord(
                     candle,
-                    retryFailed
+                    retryFailed, properties.provider().mode()
             );
 
             if (entity.getStatus() == AnalysisStatus.COMPLETED) {

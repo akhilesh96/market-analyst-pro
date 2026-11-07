@@ -10,6 +10,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
+
 /**
  * Handles atomic per-candle state transitions in isolated transactions so that
  * concurrent threads immediately see PENDING, COMPLETED, or FAILED rows in PostgreSQL.
@@ -23,31 +25,43 @@ public class CandlePersistenceHelper {
         this.repository = repository;
     }
 
+
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public CandleAnalysisEntity getOrCreatePendingRecord(CandleData candle, boolean retryFailed) {
-        return repository.findBySymbolAndIntervalAndCandleTimestamp(
-                candle.symbol().toUpperCase(),
-                candle.interval().toLowerCase(),
-                candle.timestamp()
-        ).map(existing -> {
-            if (existing.getStatus() == AnalysisStatus.FAILED && retryFailed) {
-                existing.resetToPending();
-                return repository.saveAndFlush(existing);
-            }
-            return existing;
-        }).orElseGet(() -> {
-            try {
-                return repository.saveAndFlush(CandleAnalysisEntity.createPending(candle));
-            } catch (DataIntegrityViolationException ex) {
-                // Another concurrent thread inserted the same (symbol, interval, timestamp) first
-                return repository.findBySymbolAndIntervalAndCandleTimestamp(
-                        candle.symbol().toUpperCase(),
-                        candle.interval().toLowerCase(),
-                        candle.timestamp()
-                ).orElseThrow(() -> ex);
-            }
-        });
+    public CandleAnalysisEntity getOrCreatePendingRecord(CandleData candle, boolean retryFailed, String activeMode) {
+        String symbol = candle.symbol().toUpperCase();
+        String interval = candle.interval().toLowerCase();
+        Instant candleTimestamp = candle.timestamp();
+
+        // 1. Insert if missing (database ignores duplicates safely)
+        repository.insertPendingIfAbsent(
+                symbol,
+                interval,
+                candleTimestamp,
+                candle.open(),
+                candle.high(),
+                candle.low(),
+                candle.close(),
+                candle.volume()
+        );
+
+        // 2. Fetch the row (it is guaranteed to exist now)
+        CandleAnalysisEntity entity = repository.findBySymbolAndIntervalAndCandleTimestamp(symbol, interval, candleTimestamp)
+                .orElseThrow(() -> new IllegalStateException("Failed to load candle for " + symbol));
+
+        // 3. Retry if previously failed or if switching from mock mode
+        boolean isStaleMock = "real".equalsIgnoreCase(activeMode)
+                && entity.getModelUsed() != null
+                && entity.getModelUsed().startsWith("mock-");
+
+        if (isStaleMock || (entity.getStatus() == AnalysisStatus.FAILED && retryFailed)) {
+            entity.refreshCandleAndResetPending(candle);
+            return repository.saveAndFlush(entity);
+        }
+
+        return entity;
     }
+
+
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void markCompleted(CandleData candle, AiGenerationResult result) {

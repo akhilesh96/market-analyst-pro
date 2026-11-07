@@ -84,7 +84,19 @@ public class CandleAnalysisEntity {
         entity.updatedAt = now;
         return entity;
     }
-
+    public void refreshCandleAndResetPending(CandleData candle) {
+        this.openPrice = candle.open();
+        this.highPrice = candle.high();
+        this.lowPrice = candle.low();
+        this.closePrice = candle.close();
+        this.volume = candle.volume();
+        this.status = AnalysisStatus.PENDING;
+        this.aiSummary = null;
+        this.sentiment = null;
+        this.modelUsed = null;
+        this.errorMessage = null;
+        this.updatedAt = Instant.now();
+    }
     public void markCompleted(AiGenerationResult result) {
         this.status = AnalysisStatus.COMPLETED;
         this.aiSummary = result.summary();
